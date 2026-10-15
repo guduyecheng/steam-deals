@@ -1,0 +1,50 @@
+name: 更新 Steam 史低榜
+
+on:
+  # 每天 UTC 01:00 运行 = 北京时间 09:00
+  schedule:
+    - cron: '0 1 * * *'
+  # 也可以在网页上手动点一下立即运行
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 抓取并生成榜单
+        env:
+          ITAD_API_KEY: ${{ secrets.ITAD_API_KEY }}
+        run: python fetch_deals.py
+
+      - name: 上传页面
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
